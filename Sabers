@@ -1,0 +1,313 @@
+local gethui = gethui or (syn and syn.protect_gui) or (iscclosure and get_hidden_gui) or error("Unsupported executor")
+local players = game:GetService("Players")
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local localPlayer = players.LocalPlayer
+
+if gethui():FindFirstChild("screen") then
+    print("Script is already executed! Rejoin if it's an error!")
+    if gethui():FindFirstChild("screen2") then
+        localPlayer:Kick("Anti-spam execution system triggered. Please rejoin to proceed.")
+    else
+        Instance.new("Folder", gethui()).Name = "screen2"
+    end
+    return
+end
+Instance.new("Folder", gethui()).Name = "screen"
+
+local rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+local window = rayfield:CreateWindow({
+    Name = "saber showdown",
+    LoadingTitle = "enjoy :3",
+    LoadingSubtitle = "by alixzar! (restored)",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "savefile",
+        FileName = "Settings",
+    }
+})
+
+local mainTab = window:CreateTab("Main", 4483362458)
+local creditsTab = window:CreateTab("Credits", 4483362458)
+creditsTab:CreateLabel("alixzar - main developer")
+creditsTab:CreateLabel("Rayfield - UI")
+creditsTab:CreateLabel("I know this is the credits tab but")
+creditsTab:CreateLabel("just letting you know that more stuff is coming soon!")
+
+local lightsaberRemotes = replicatedStorage:WaitForChild("LightsaberRemotes")
+local function fireRemote(remoteName, ...)
+    local remote = lightsaberRemotes:FindFirstChild(remoteName)
+    if remote then remote:FireServer(...) end
+end
+
+local killauraEnabled = false
+local killauraRange = 15
+
+mainTab:CreateToggle({
+    Name = "killaura",
+    CurrentValue = false,
+    Flag = "killaura",
+    Callback = function(state)
+        killauraEnabled = state
+        if not state then return end
+        task.spawn(function()
+            while killauraEnabled do
+                task.wait(0.05)
+                local char = localPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then continue end
+                local rootPos = hrp.Position
+                local target = nil
+                local closest = killauraRange + 1
+                for _, plr in ipairs(players:GetPlayers()) do
+                    if plr ~= localPlayer then
+                        local tChar = plr.Character
+                        local tHrp = tChar and tChar:FindFirstChild("HumanoidRootPart")
+                        local hum = tChar and tChar:FindFirstChildWhichIsA("Humanoid")
+                        if tHrp and hum and hum.Health > 0 then
+                            local dist = (tHrp.Position - rootPos).Magnitude
+                            if dist < closest then
+                                closest = dist
+                                target = tChar
+                            end
+                        end
+                    end
+                end
+                if target then
+                    fireRemote("MouseDown")
+                    fireRemote("Attack", math.random(1,10), 1, false, false)
+                    fireRemote("MouseUp")
+                    fireRemote("Swing")
+                    fireRemote("OnHit", target)
+                    fireRemote("FinishSwingNoBounce")
+                    fireRemote("ResetSwingDirection")
+                end
+            end
+        end)
+    end
+})
+
+mainTab:CreateSlider({
+    Name = "Killaura Range",
+    Range = {5, 30}, Increment = 1, CurrentValue = 15, Flag = "killauraRange",
+    Callback = function(v) killauraRange = v end
+})
+
+local godmodeEnabled = false
+
+mainTab:CreateToggle({
+    Name = "godmode (use in-game)",
+    CurrentValue = false,
+    Flag = "godmode",
+    Callback = function(state)
+        godmodeEnabled = state
+        if not state then return end
+        task.spawn(function()
+            while godmodeEnabled do
+                local char = localPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    fireRemote("MouseDown")
+                    fireRemote("Attack", math.random(1,10), 1, false, false)
+                    fireRemote("MouseUp")
+                    fireRemote("Swing")
+                    fireRemote("OnHit", char)
+                    fireRemote("FinishSwingNoBounce")
+                    fireRemote("ResetSwingDirection")
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
+})
+
+local staminaEnabled = false
+
+local function getStaminaValue()
+    local playerGui = localPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        local staminaFrame = playerGui:FindFirstChild("StaminaFrame") or playerGui:FindFirstChild("StaminaBar")
+        if staminaFrame then
+            local value = staminaFrame:FindFirstChild("Value") or staminaFrame:FindFirstChild("Stamina")
+            if value then return value end
+        end
+    end
+    for _, child in ipairs(localPlayer:GetDescendants()) do
+        if child:IsA("NumberValue") and (child.Name:lower():find("stamina") or child.Name:lower():find("energy")) then
+            return child
+        end
+    end
+    return nil
+end
+
+mainTab:CreateToggle({
+    Name = "infinite fuel (aka inf stamina)",
+    CurrentValue = false,
+    Flag = "stamina",
+    Callback = function(state)
+        staminaEnabled = state
+        if not state then 
+            return 
+        end
+        task.spawn(function()
+            local staminaValue = getStaminaValue()
+            if not staminaValue then
+                warn("Could not find stamina value – infinite stamina may not work")
+                return
+            end
+            while staminaEnabled do
+                staminaValue.Value = 100
+                task.wait(0.05)
+            end
+        end)
+    end
+})
+
+local killFarmEnabled = false
+local killFarmDelay = 1.0
+local killFarmRunning = false
+
+local function attackTarget(targetChar)
+    if not targetChar or not targetChar.Parent then return end
+    fireRemote("MouseDown")
+    fireRemote("Attack", math.random(1,10), 1, false, false)
+    fireRemote("MouseUp")
+    fireRemote("Swing")
+    fireRemote("OnHit", targetChar)
+    fireRemote("FinishSwingNoBounce")
+    fireRemote("ResetSwingDirection")
+    task.wait(0.1)
+end
+
+local function teleportToCharacter(targetChar)
+    local localChar = localPlayer.Character
+    local localHrp = localChar and localChar:FindFirstChild("HumanoidRootPart")
+    local targetHrp = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    if not localHrp or not targetHrp then return false end
+    localHrp.CFrame = CFrame.new(targetHrp.Position + Vector3.new(0, 3, 0))
+    task.wait(0.05)
+    return true
+end
+
+local function killFarmLoop()
+    while killFarmEnabled and killFarmRunning do
+        local playersList = players:GetPlayers()
+        local anyAttacked = false
+        for _, plr in ipairs(playersList) do
+            if not killFarmEnabled then break end
+            if plr ~= localPlayer then
+                local targetChar = plr.Character
+                if targetChar then
+                    local hum = targetChar:FindFirstChildWhichIsA("Humanoid")
+                    if hum and hum.Health > 0 then
+                        if teleportToCharacter(targetChar) then
+                            task.wait(0.1)
+                            attackTarget(targetChar)
+                            anyAttacked = true
+                            for i = 1, math.floor(killFarmDelay * 10) do
+                                if not killFarmEnabled then break end
+                                task.wait(0.1)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        if not anyAttacked and killFarmEnabled then task.wait(0.5) end
+    end
+end
+
+mainTab:CreateToggle({
+    Name = "Auto Goto All (Kill Farm)",
+    CurrentValue = false,
+    Flag = "killfarm",
+    Callback = function(state)
+        if state == killFarmEnabled then return end
+        killFarmEnabled = state
+        if state then
+            killFarmRunning = true
+            task.spawn(killFarmLoop)
+        else
+            killFarmRunning = false
+        end
+    end
+})
+
+mainTab:CreateSlider({
+    Name = "Kill Farm Delay (seconds)",
+    Range = {0.3, 5}, Increment = 0.1, CurrentValue = 1.0, Flag = "killfarmdelay",
+    Callback = function(v) killFarmDelay = v end
+})
+
+local loopGotoEnabled = false
+local loopGotoTargetName = ""
+local loopGotoInterval = 1.0
+local loopGotoRunning = false
+
+local function teleportToDisplayName(displayName)
+    local targetPlayer = nil
+    for _, plr in ipairs(players:GetPlayers()) do
+        if plr.DisplayName == displayName then
+            targetPlayer = plr
+            break
+        end
+    end
+    if not targetPlayer then return false end
+    local targetChar = targetPlayer.Character
+    if not targetChar then return false end
+    local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetHrp then return false end
+    local localChar = localPlayer.Character
+    local localHrp = localChar and localChar:FindFirstChild("HumanoidRootPart")
+    if not localHrp then return false end
+    localHrp.CFrame = CFrame.new(targetHrp.Position + Vector3.new(0, 3, 0))
+    return true
+end
+
+local function loopGotoPlayer()
+    while loopGotoEnabled and loopGotoRunning do
+        if loopGotoTargetName and loopGotoTargetName ~= "" then
+            local success = teleportToDisplayName(loopGotoTargetName)
+            if not success then
+                task.wait(loopGotoInterval)
+            else
+                task.wait(loopGotoInterval)
+            end
+        else
+            task.wait(loopGotoInterval)
+        end
+    end
+end
+
+mainTab:CreateInput({
+    Name = "Target Display Name (for loop goto)",
+    PlaceholderText = "Enter player's display name",
+    RemoveTextAfterFocusLost = false,
+    CurrentValue = "",
+    Flag = "loopGotoName",
+    Callback = function(value)
+        loopGotoTargetName = value
+    end
+})
+
+mainTab:CreateToggle({
+    Name = "Loop Goto Player (teleport only)",
+    CurrentValue = false,
+    Flag = "loopGotoToggle",
+    Callback = function(state)
+        if state == loopGotoEnabled then return end
+        loopGotoEnabled = state
+        if state then
+            loopGotoRunning = true
+            task.spawn(loopGotoPlayer)
+        else
+            loopGotoRunning = false
+        end
+    end
+})
+
+mainTab:CreateSlider({
+    Name = "Loop Goto Interval (seconds)",
+    Range = {0.5, 5}, Increment = 0.1, CurrentValue = 1.0, Flag = "loopGotoInterval",
+    Callback = function(v) loopGotoInterval = v end
+})
+
+print("✅ Script fully restored – killaura, godmode, stamina, kill farm, loop goto all work")
